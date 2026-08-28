@@ -1,1 +1,1 @@
-Tracking my learning for CS336 taught at Stanford
+Homework assignment for CS366
