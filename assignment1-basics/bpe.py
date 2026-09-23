@@ -48,12 +48,28 @@ def train_bpe(input_path: str, vocab_size: int, special_tokens: list[str]):
         segments = re.split(pattern, text) # Split the text at special tokens.
     
     """
-    Pretokenization.
+    Pre-tokenization and frequency list.
     """
-    for segment in segments:
-        for match in re.finditer(PAT, segments):
-            piece = match.group() # Find each and every pre-token.
+    freq = {}
 
+    for segment in segments: # Loop over each segments separated by special tokens.
+        for match in re.finditer(PAT, segment):
+            piece = match.group() # Pre-tokenization.
+            
+            encoded = piece.encode("utf-8") # Encode pre-tokens.
+            
+            byte_pre_token = [] # Create a list for each encoded pre-tokens.
+
+            for value in encoded:
+                byte_pre_token.append(bytes([value])) # Loop over each byte in each pre-token.
+            
+            key = tuple(byte_pre_token) # Build tuple keys for each pre-tokens which are in byte representations.
+            
+            # Count frequency for each tuple key.
+            if key in freq:
+                freq[key] += 1
+            else:
+                freq[key] = 1
 
     return vocab, merges
 
