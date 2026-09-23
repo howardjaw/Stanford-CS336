@@ -1,1 +1,1 @@
-Homework assignment for CS366
+Homework assignment for CS366 🍌
