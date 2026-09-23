@@ -70,6 +70,24 @@ def train_bpe(input_path: str, vocab_size: int, special_tokens: list[str]):
                 freq[key] += 1
             else:
                 freq[key] = 1
+    
+    """
+    Count adjacent token pairs.
+    """
+
+    adj_freq = {}
+
+    # Loop over each key tuples in freq dict.
+    for sequence, count in freq.items(): 
+        for i in range(len(sequence)-1): # Loop over each byte representation in every key tuple.
+            
+            pair = (sequence[i], sequence[i+1]) # Define adjacent pairs.
+
+            # Count adjacent pair frequency.
+            if pair in adj_freq:
+                adj_freq[pair] += 1
+            else:
+                adj_freq[pair] = 1
 
     return vocab, merges
 
