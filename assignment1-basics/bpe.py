@@ -1,5 +1,7 @@
 import regex as re
 
+PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+""" # Regex Pattern adopted from GPT-2
+
 """
 Implementation of BPE Tokenizer
 """
@@ -24,17 +26,17 @@ def train_bpe(input_path: str, vocab_size: int, special_tokens: list[str]):
         vocab[len(vocab)] = token_bytes
 
     """
-    Reading files and split at special tokens.
+    Read files and split at special tokens to segments.
     """
     with open(input_path, "r", encoding = "utf-8") as f:
         # Read file.
         text = f.read()
     
-    chunked = []
+    segments = []
 
     # Split at special tokens.
     if not special_tokens:
-        chunked.append(text)
+        segments.append(text)
     else:
         escaped_tokens = []
         
@@ -43,8 +45,15 @@ def train_bpe(input_path: str, vocab_size: int, special_tokens: list[str]):
         
         pattern = "|".join(escaped_tokens) # Build a string for all special tokens with "or" for re.split().
 
-        chunked = re.split(pattern, text) # Split the text at special tokens
+        segments = re.split(pattern, text) # Split the text at special tokens.
     
+    """
+    Pretokenization.
+    """
+    for segment in segments:
+        for match in re.finditer(PAT, segments):
+            piece = match.group() # Find each and every pre-token.
+
 
     return vocab, merges
 
