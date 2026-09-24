@@ -3,7 +3,7 @@ import regex as re
 PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+""" # Regex Pattern adopted from GPT-2
 
 """
-Implementation of BPE Tokenizer
+Implementation of BPE Tokenizer.
 """
 
 def train_bpe(input_path: str, vocab_size: int, special_tokens: list[str]):
@@ -51,8 +51,9 @@ def train_bpe(input_path: str, vocab_size: int, special_tokens: list[str]):
     Pre-tokenization and frequency list.
     """
     freq = {}
+    idx = {} # A dict that records the index for each sequence.
 
-    for segment in segments: # Loop over each segments separated by special tokens.
+    for segment in segments: # Loop over each segment separated by special tokens.
         for match in re.finditer(PAT, segment):
             piece = match.group() # Pre-tokenization.
             
@@ -70,35 +71,43 @@ def train_bpe(input_path: str, vocab_size: int, special_tokens: list[str]):
                 freq[key] += 1
             else:
                 freq[key] = 1
+
+    # Build index list.        
+    for sequence_id, (sequence, count) in enumerate(freq.items()):
+        idx[sequence_id] = sequence, count
     
+
     """
-    Looping over merges
+    Count adjacent token pairs and build pair-to-sequence dict.
     """
+
+    adj_freq = {}
+
+    pair_to_sequence = {} # Build a dict that stores adjacent pair and the sequences in which they have appeared in.
+
+    for sequence_id, (sequence, count) in idx.items():
+        for i in range(len(sequence) - 1):
+            pair = (sequence[i], sequence[i + 1])
+
+            # Count every occurrence, weighted by sequence frequency.
+            if pair in adj_freq:
+                adj_freq[pair] += count
+            else:
+                adj_freq[pair] = count
+
+            # Record each containing sequence's ID once.
+            if pair not in pair_to_sequence:
+                pair_to_sequence[pair] = set()
+
+            pair_to_sequence[pair].add(sequence_id)
+
+    """
+    Merge.
+    """    
     while len(vocab) < vocab_size:
-
-        """
-        Count adjacent token pairs.
-        """
-
-        adj_freq = {}
-
-        # Loop over each key tuple in freq dict.
-        for sequence, count in freq.items(): 
-            for i in range(len(sequence)-1): # Loop over each byte representation in every key tuple.
-                
-                pair = (sequence[i], sequence[i+1]) # Define adjacent pairs.
-
-                # Count adjacent pair frequency.
-                if pair in adj_freq:
-                    adj_freq[pair] += count
-                else:
-                    adj_freq[pair] = count
-
-        """
-        One merge loop.
-        """
+        
         best_pair = None
-    
+
         best_count = -1
 
         # Loop over adjacent frequency dict to find the most frequently appeared pair. 
@@ -120,28 +129,57 @@ def train_bpe(input_path: str, vocab_size: int, special_tokens: list[str]):
 
         merges.append(best_pair) # Update the merges list.
 
-        # Update the frequency dict.
-        updated_freq = {}
+        # Copy the IDs because we will modify the index sets below.
+        affected_ids = pair_to_sequence[best_pair].copy()
 
-        for sequence, count in freq.items():
-            updated_pre_token = []
-            
-            i=0
+        for sequence_id in affected_ids:
+            sequence, count = idx[sequence_id]
+
+            # 1. Remove this sequence's old pair contributions.
+            for i in range(len(sequence) - 1):
+                pair = (sequence[i], sequence[i + 1])
+
+                adj_freq[pair] -= count
+                if adj_freq[pair] == 0:
+                    del adj_freq[pair]
+
+                # discard() is safe if a repeated pair already removed this ID.
+                pair_to_sequence[pair].discard(sequence_id)
+
+            # 2. Merge the winning pair within this sequence.
+            updated_sequence = []
+            i = 0
 
             while i < len(sequence):
-                if i+1 < len(sequence) and best_pair == (sequence[i], sequence[i+1]):
-                    updated_pre_token.append(merged_pair)
+                if (
+                    i + 1 < len(sequence)
+                    and (sequence[i], sequence[i + 1]) == best_pair
+                ):
+                    updated_sequence.append(merged_pair)
                     i += 2
                 else:
-                    updated_pre_token.append(sequence[i])
-                    i+= 1
-            
-            key = tuple(updated_pre_token)
+                    updated_sequence.append(sequence[i])
+                    i += 1
 
-            updated_freq[key] = count
-        
-        freq = updated_freq
-        
+            updated_sequence = tuple(updated_sequence)
+
+            # Preserve the sequence ID and its occurrence count.
+            idx[sequence_id] = updated_sequence, count
+
+            # 3. Add this sequence's new pair contributions.
+            for i in range(len(updated_sequence) - 1):
+                pair = (updated_sequence[i], updated_sequence[i + 1])
+
+                if pair in adj_freq:
+                    adj_freq[pair] += count
+                else:
+                    adj_freq[pair] = count
+
+                if pair not in pair_to_sequence:
+                    pair_to_sequence[pair] = set()
+
+                pair_to_sequence[pair].add(sequence_id)
+                
     return vocab, merges
 
 
