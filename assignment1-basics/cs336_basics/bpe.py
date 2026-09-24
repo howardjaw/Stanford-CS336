@@ -72,82 +72,76 @@ def train_bpe(input_path: str, vocab_size: int, special_tokens: list[str]):
                 freq[key] = 1
     
     """
-    Count adjacent token pairs.
+    Looping over merges
     """
+    while len(vocab) < vocab_size:
 
-    adj_freq = {}
+        """
+        Count adjacent token pairs.
+        """
 
-    # Loop over each key tuple in freq dict.
-    for sequence, count in freq.items(): 
-        for i in range(len(sequence)-1): # Loop over each byte representation in every key tuple.
-            
-            pair = (sequence[i], sequence[i+1]) # Define adjacent pairs.
+        adj_freq = {}
 
-            # Count adjacent pair frequency.
-            if pair in adj_freq:
-                adj_freq[pair] += 1
-            else:
-                adj_freq[pair] = 1
+        # Loop over each key tuple in freq dict.
+        for sequence, count in freq.items(): 
+            for i in range(len(sequence)-1): # Loop over each byte representation in every key tuple.
+                
+                pair = (sequence[i], sequence[i+1]) # Define adjacent pairs.
 
-    """
-    One merge loop.
-    """
-    best_pair = None
-   
-    best_count = -1
+                # Count adjacent pair frequency.
+                if pair in adj_freq:
+                    adj_freq[pair] += count
+                else:
+                    adj_freq[pair] = count
 
-    # Loop over adjacent frequency dict to find the most frequently appeared pair. 
-    for pair, count in adj_freq.items():
-        if best_count < count:
-            best_count = count
-            best_pair = pair
-        elif best_count == count: # Compare lexicographic order if same frequency.
-            if pair > best_pair:
-                best_pair = pair
+        """
+        One merge loop.
+        """
+        best_pair = None
     
-    # Merge.
-    if best_pair is not None:
+        best_count = -1
+
+        # Loop over adjacent frequency dict to find the most frequently appeared pair. 
+        for pair, count in adj_freq.items():
+            if best_count < count:
+                best_count = count
+                best_pair = pair
+            elif best_count == count: # Compare lexicographic order if same frequency.
+                if pair > best_pair:
+                    best_pair = pair
+        
+        # Merge.
+        if best_pair is None:
+            break
+
         merged_pair = best_pair[0] + best_pair[1]
 
-    vocab[len(vocab)] = merged_pair # Update the vocab dict.
+        vocab[len(vocab)] = merged_pair # Update the vocab dict.
 
-    merges.append(best_pair) # Update the merges list.
+        merges.append(best_pair) # Update the merges list.
 
-    # Update the frequency dict.
-    updated_freq = {}
+        # Update the frequency dict.
+        updated_freq = {}
 
-    for sequence, count in freq.items():
-        updated_pre_token = []
+        for sequence, count in freq.items():
+            updated_pre_token = []
+            
+            i=0
+
+            while i < len(sequence):
+                if i+1 < len(sequence) and best_pair == (sequence[i], sequence[i+1]):
+                    updated_pre_token.append(merged_pair)
+                    i += 2
+                else:
+                    updated_pre_token.append(sequence[i])
+                    i+= 1
+            
+            key = tuple(updated_pre_token)
+
+            updated_freq[key] = count
         
-        i=0
-
-        while i < len(sequence):
-            if i+1 < len(sequence) and best_pair == (sequence[i], sequence[i+1]):
-                updated_pre_token.append(merged_pair)
-                i += 2
-            else:
-                updated_pre_token.append(sequence[i])
-                i+= 1
+        freq = updated_freq
         
-        key = tuple(updated_pre_token)
-
-        updated_freq[key] = count
-    
-    freq = updated_freq
-
-    
-    
-
-
-    
-
-
-
-
-
-
-
-
     return vocab, merges
 
 
