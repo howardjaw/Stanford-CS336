@@ -173,7 +173,7 @@ class Tokenizer:
                 continue
 
             for piece, is_special in pieces[:-1]:
-                yield from self._pieces_to_ids(piece, is_special)
+                yield from self._piece_to_ids(piece, is_special)
             
             buffer = pieces[-1][0]
 
