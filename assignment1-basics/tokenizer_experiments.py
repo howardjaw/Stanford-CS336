@@ -25,8 +25,8 @@ def compression_ratio(tokenizer, documents):
     
     return total_bytes / total_tokens
 
-ts_ratio = compression_ratio(ts_tok, ts_sample)
-owt_ratio = compression_ratio(owt_tok, owt_sample)
+ts_ratio = compression_ratio(ts_tok, owt_sample)
+owt_ratio = compression_ratio(owt_tok, ts_sample)
 
 print(f"TinyStories: {ts_ratio:.3f} bytes/token")
 print(f"OpenWebText: {owt_ratio:.3f} bytes/token")
