@@ -139,6 +139,42 @@ class RotaryPositionalEmbedding(nn.Module):
         # cos/sin are float32, so convert back in case x was lower precision (e.g. bf16).
         rotated = torch.stack([rotated_first, rotated_second], dim=-1).flatten(-2)
         return rotated.to(x.dtype)
+
+def softmax(x: torch.Tensor, dim: int) -> torch.Tensor:
+    """
+    Turn scores into probabilities along `dim` (all positive, summing to 1).
+    """
+    # Subtract the largest score first so exp() never overflows; the result is unchanged.
+    x_max = x.max(dim=dim, keepdim=True).values
+    exp_x = torch.exp(x - x_max)
+
+    return exp_x / exp_x.sum(dim=dim, keepdim=True)
+
+def scaled_dot_product_attention(
+    Q: torch.Tensor,
+    K: torch.Tensor,
+    V: torch.Tensor,
+    mask: torch.Tensor | None = None,
+) -> torch.Tensor:
+    """
+    Attention(Q, K, V) = softmax(Q Kᵀ / √d_k) V.
+    Q: (..., queries, d_k), K: (..., keys, d_k), V: (..., keys, d_v) -> (..., queries, d_v).
+    mask: True where a query may look at a key, False where it may not.
+    """
+    d_k = Q.shape[-1]
+
+    # Score every (query, key) pair with a dot product, scaled down by √d_k: (..., queries, keys).
+    scores = einsum(Q, K, "... q d, ... k d -> ... q k") / math.sqrt(d_k)
+
+    # Blocked pairs get -inf, so softmax gives them exactly zero weight.
+    if mask is not None:
+        scores = scores.masked_fill(~mask, float("-inf"))
+
+    # Each query's weights over the keys sum to 1.
+    weights = softmax(scores, dim=-1)
+
+    # Output = weighted average of the values: (..., queries, d_v).
+    return einsum(weights, V, "... q k, ... k d_v -> ... q d_v")
     
         
 
